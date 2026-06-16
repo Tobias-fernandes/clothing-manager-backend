@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: clothing_manager_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: clothing_manager
+      PGTZ: America/Recife
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+volumes:
+  pgdata:

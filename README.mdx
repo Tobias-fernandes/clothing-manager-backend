@@ -1,0 +1,314 @@
+# Clothing Manager — Documentação da API
+
+> Sistema web de gerenciamento interno para lojas de roupas.  
+> Desenvolvido com **NestJS**, **TypeORM** e **PostgreSQL**.
+
+---
+
+## Visão Geral
+
+O **Clothing Manager** é uma API RESTful que centraliza as operações internas de uma loja de roupas, permitindo o gerenciamento de produtos, estoque, vendas, financeiro e usuários em um único ambiente.
+
+A API roda em `http://localhost:3001` e todas as rotas estão sob o prefixo `/api/v1`.  
+A documentação interativa (Swagger) está disponível em `http://localhost:3001/api/docs`.
+
+---
+
+## Autenticação
+
+A API utiliza **JWT (JSON Web Token)**. Para acessar rotas protegidas, é necessário:
+
+1. Realizar login em `POST /api/v1/auth/login`
+2. Copiar o `access_token` retornado
+3. Enviar o token no header de todas as requisições:
+
+```
+Authorization: Bearer <seu_token>
+```
+
+O token expira em **8 horas**.
+
+---
+
+## Perfis de Acesso
+
+| Perfil      | Valor      | Permissões                                     |
+| ----------- | ---------- | ---------------------------------------------- |
+| Gerente     | `manager`  | Acesso completo ao sistema                     |
+| Funcionário | `employee` | Registrar vendas, consultar produtos e estoque |
+
+---
+
+## Módulos
+
+### 🔐 Autenticação — `/api/v1/auth`
+
+| Método | Rota          | Descrição                           |
+| ------ | ------------- | ----------------------------------- |
+| POST   | `/auth/login` | Realiza login e retorna o token JWT |
+
+**Exemplo de requisição:**
+
+```json
+{
+  "email": "tobias@clothing.com",
+  "password": "123456"
+}
+```
+
+**Exemplo de resposta:**
+
+```json
+{
+  "access_token": "eyJhbGci...",
+  "user": {
+    "id": "uuid",
+    "name": "Tobias Gerente",
+    "email": "tobias@clothing.com",
+    "role": "manager"
+  }
+}
+```
+
+---
+
+### 👥 Usuários — `/api/v1/users`
+
+> Acesso restrito a **gerentes**.
+
+| Método | Rota                    | Descrição                |
+| ------ | ----------------------- | ------------------------ |
+| POST   | `/users`                | Cadastrar novo usuário   |
+| GET    | `/users`                | Listar todos os usuários |
+| GET    | `/users/:id`            | Buscar usuário por ID    |
+| PATCH  | `/users/:id`            | Editar dados do usuário  |
+| PATCH  | `/users/:id/deactivate` | Inativar usuário         |
+
+**Campos para cadastro:**
+
+```json
+{
+  "name": "Tobias Fernandes",
+  "email": "tobias@clothing.com",
+  "password": "123456",
+  "role": "manager"
+}
+```
+
+> Senhas são armazenadas com hash **bcrypt** e nunca retornadas nas respostas.
+
+---
+
+### 🛍️ Produtos — `/api/v1/products`
+
+> Cadastro, edição e inativação restritos a **gerentes**. Consulta liberada para funcionários.
+
+| Método | Rota                       | Descrição                               |
+| ------ | -------------------------- | --------------------------------------- |
+| POST   | `/products`                | Cadastrar produto                       |
+| GET    | `/products`                | Listar produtos ativos                  |
+| GET    | `/products?search=termo`   | Buscar por nome, código, cor ou tamanho |
+| GET    | `/products/:id`            | Buscar produto por ID                   |
+| PATCH  | `/products/:id`            | Editar produto                          |
+| PATCH  | `/products/:id/deactivate` | Inativar produto (histórico preservado) |
+
+**Campos para cadastro:**
+
+```json
+{
+  "name": "Camiseta Básica",
+  "code": "CAM-001",
+  "category": "shirt",
+  "size": "M",
+  "color": "Branca",
+  "costPrice": 25.0,
+  "salePrice": 59.9,
+  "quantity": 10,
+  "description": "Camiseta básica de algodão"
+}
+```
+
+**Categorias disponíveis:** `shirt`, `pants`, `dress`, `shoe`, `accessory`, `other`
+
+---
+
+### 📦 Estoque — `/api/v1/stock`
+
+> Registro de movimentações restrito a **gerentes**. Consultas liberadas para funcionários.
+
+| Método | Rota                              | Descrição                             |
+| ------ | --------------------------------- | ------------------------------------- |
+| POST   | `/stock/movements`                | Registrar movimentação de estoque     |
+| GET    | `/stock/movements`                | Listar histórico de movimentações     |
+| GET    | `/stock/movements?productId=uuid` | Filtrar movimentações por produto     |
+| GET    | `/stock/low-stock`                | Listar produtos com estoque baixo     |
+| GET    | `/stock/low-stock?minQuantity=10` | Definir quantidade mínima para alerta |
+
+**Tipos de movimentação:**
+
+| Tipo         | Descrição                                |
+| ------------ | ---------------------------------------- |
+| `entry`      | Entrada de mercadoria                    |
+| `exit`       | Saída manual                             |
+| `adjustment` | Ajuste de quantidade                     |
+| `loss`       | Perda ou avaria                          |
+| `sale`       | Saída por venda (gerada automaticamente) |
+
+**Exemplo de requisição:**
+
+```json
+{
+  "productId": "uuid-do-produto",
+  "type": "entry",
+  "quantity": 5,
+  "observation": "Reposição de estoque"
+}
+```
+
+> O estoque é atualizado **automaticamente** ao registrar uma venda.
+
+---
+
+### 🛒 Vendas — `/api/v1/sales`
+
+> Acessível para **gerentes e funcionários**.
+
+| Método | Rota                                             | Descrição                     |
+| ------ | ------------------------------------------------ | ----------------------------- |
+| POST   | `/sales`                                         | Registrar nova venda          |
+| GET    | `/sales`                                         | Listar todas as vendas        |
+| GET    | `/sales?startDate=2026-05-01&endDate=2026-05-31` | Filtrar por período           |
+| GET    | `/sales/daily-summary`                           | Resumo do dia atual           |
+| GET    | `/sales/daily-summary?date=2026-05-12`           | Resumo de uma data específica |
+| GET    | `/sales/:id`                                     | Buscar venda por ID           |
+
+**Formas de pagamento:**
+
+| Valor                     | Descrição                   |
+| ------------------------- | --------------------------- |
+| `pix`                     | Pix                         |
+| `debit_card`              | Cartão de débito            |
+| `credit_card_cash`        | Cartão de crédito à vista   |
+| `credit_card_installment` | Cartão de crédito parcelado |
+| `cash`                    | Dinheiro                    |
+
+**Exemplo de requisição:**
+
+```json
+{
+  "paymentMethod": "credit_card_installment",
+  "installments": 3,
+  "items": [
+    {
+      "productId": "uuid-do-produto",
+      "quantity": 2
+    }
+  ]
+}
+```
+
+> Ao registrar uma venda:
+>
+> - O estoque é **baixado automaticamente**
+> - Uma **entrada financeira** é gerada automaticamente
+> - O preço de venda é sempre o cadastrado no produto
+
+---
+
+### 💰 Financeiro — `/api/v1/finance`
+
+> Acesso restrito a **gerentes**.
+
+| Método | Rota                                               | Descrição                             |
+| ------ | -------------------------------------------------- | ------------------------------------- |
+| POST   | `/finance`                                         | Registrar entrada ou saída financeira |
+| GET    | `/finance`                                         | Listar movimentações financeiras      |
+| GET    | `/finance?type=income`                             | Filtrar por tipo                      |
+| GET    | `/finance?startDate=2026-05-01&endDate=2026-05-31` | Filtrar por período                   |
+| GET    | `/finance/summary`                                 | Resumo financeiro do período          |
+
+**Tipos:**
+
+| Valor     | Descrição          |
+| --------- | ------------------ |
+| `income`  | Entrada financeira |
+| `expense` | Saída financeira   |
+
+**Categorias:**
+
+| Valor         | Descrição                        |
+| ------------- | -------------------------------- |
+| `sale`        | Gerada automaticamente por venda |
+| `supplier`    | Pagamento a fornecedor           |
+| `maintenance` | Manutenção                       |
+| `salary`      | Salário                          |
+| `other`       | Outros                           |
+
+**Exemplo de resumo financeiro:**
+
+```json
+{
+  "totalIncome": 1500.0,
+  "totalExpense": 500.0,
+  "balance": 1000.0,
+  "startDate": "2026-05-01",
+  "endDate": "2026-05-31"
+}
+```
+
+---
+
+### 📊 Dashboard — `/api/v1/dashboard`
+
+> Acessível para **gerentes e funcionários**.
+
+| Método | Rota         | Descrição            |
+| ------ | ------------ | -------------------- |
+| GET    | `/dashboard` | Resumo geral da loja |
+
+**Exemplo de resposta:**
+
+```json
+{
+  "today": "2026-05-12",
+  "sales": {
+    "totalToday": 119.8,
+    "countToday": 1,
+    "byPaymentMethod": {
+      "pix": 119.8
+    },
+    "lastSales": []
+  },
+  "stock": {
+    "totalProducts": 5,
+    "lowStockProducts": 1
+  },
+  "finance": {
+    "totalIncome": 119.8,
+    "totalExpense": 500.0,
+    "balance": -380.2
+  }
+}
+```
+
+---
+
+## Regras de Negócio Importantes
+
+- Não é possível vender quantidade maior do que a disponível em estoque
+- Toda venda exige uma forma de pagamento
+- Vendas parceladas exigem o número de parcelas (mínimo 2)
+- Produtos inativados preservam o histórico de vendas
+- Toda movimentação de estoque registra o usuário responsável
+- Toda venda gera automaticamente uma entrada financeira
+
+---
+
+## Tecnologias Utilizadas
+
+- **NestJS** — Framework backend
+- **TypeORM** — ORM para banco de dados
+- **PostgreSQL** — Banco de dados relacional
+- **JWT** — Autenticação por token
+- **bcrypt** — Hash de senhas
+- **Swagger** — Documentação interativa
