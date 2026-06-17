@@ -283,19 +283,13 @@ pnpm run test:cov
 
 ---
 
-## Protótipo Navegável
-
-> Link do protótipo: *(inserir link do Figma ou ferramenta utilizada)*
-
----
-
 ## Integrantes da Equipe
 
-| Nome                  | Matrícula |
-| --------------------- | --------- |
-| Everson Alisson       | —         |
-| Mateus Gomes          | —         |
-| Tobias Figueiredo     | —         |
+| Nome                  |
+| --------------------- |
+| Everson Alisson       |
+| Mateus Gomes          |
+| Tobias Figueiredo     |
 
 **Instituição:** Universidade Federal Rural do Semi-Árido (UFERSA)  
 **Disciplina:** PEX0162 — Engenharia de Software  
